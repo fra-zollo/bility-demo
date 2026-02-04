@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bility - AI Political Platform</title>
+    <title>Bility - Piattaforma di Trasparenza</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -25,7 +25,14 @@
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 1);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .glass-modal {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(24px);
+            box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.2);
+            border: 1px solid white;
         }
         
         path:focus { outline: none; }
@@ -57,6 +64,10 @@
             z-index: 100;
             filter: drop-shadow(0 0 12px rgba(79, 70, 229, 0.4));
         }
+
+        /* Animazioni */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in-up { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
 <body>
@@ -64,7 +75,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef } = React;
+        const { useState, useRef, useEffect } = React;
 
         // --- ICONE SVG ---
         const Icon = ({ path, size = 20, className = "" }) => (
@@ -81,51 +92,33 @@
             Award: <g><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></g>,
             Info: <g><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></g>,
             Loader2: <path d="M21 12a9 9 0 1 1-6.219-8.56"/>,
-            Alert: <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            ChevronRight: <path d="m9 18 6-6-6-6"/>,
+            TrendingUp: <g><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></g>,
+            ExternalLink: <g><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></g>
         };
 
         // --- CONFIGURAZIONE API ---
-        const apiKey = "AIzaSyDQ2EgOwmUWfGn5YzLzYSksmYccy7k7KqA"; // INSERISCI QUI LA TUA API KEY PER DATI REAL-TIME
+        // 🔑 API Key inserita per attivare la ricerca live
+        const apiKey = "AIzaSyDQ2EgOwmUWfGn5YzLzYSksmYccy7k7KqA";
 
-        // --- DATABASE INTERNO (Fallback) ---
-        const REGION_DATA = {
-            "Valle d'Aosta": { name: "Valle d'Aosta", representatives: { european: [{ name: "Ilaria Salis (AVS)", role: "Europarlamentare (Nord-Ovest)" }], national: [{ name: "Franco Manes (UV)", role: "Deputato" }], regional: [{ name: "Renzo Testolin", role: "Presidente Regione" }, { name: "Gianni Nuti", role: "Sindaco Aosta" }] } },
-            "Piemonte": { name: "Piemonte", representatives: { european: [{ name: "Cecilia Strada (PD)", role: "Europarlamentare" }, { name: "Giovanni Crosetto (FdI)", role: "Europarlamentare" }], national: [{ name: "Guido Crosetto (FdI)", role: "Ministro Difesa" }, { name: "Chiara Appendino", role: "Deputata" }], regional: [{ name: "Alberto Cirio", role: "Presidente Regione" }, { name: "Stefano Lo Russo", role: "Sindaco Torino" }] } },
-            "Liguria": { name: "Liguria", representatives: { european: [{ name: "Brando Benifei (PD)", role: "Europarlamentare" }], national: [{ name: "Edoardo Rixi (Lega)", role: "Viceministro" }], regional: [{ name: "Marco Bucci", role: "Presidente Regione (2024)" }, { name: "Pietro Piciocchi", role: "Vicesindaco Genova" }] } },
-            "Lombardia": { name: "Lombardia", representatives: { european: [{ name: "Giorgio Gori (PD)", role: "Europarlamentare" }, { name: "Roberto Vannacci (Lega)", role: "Europarlamentare" }], national: [{ name: "Matteo Salvini (Lega)", role: "Vicepremier" }], regional: [{ name: "Attilio Fontana", role: "Presidente Regione" }, { name: "Giuseppe Sala", role: "Sindaco Milano" }] } },
-            "Trentino-Alto Adige": { name: "Trentino-Alto Adige", representatives: { european: [{ name: "Herbert Dorfmann (SVP)", role: "Europarlamentare" }], national: [{ name: "Maria Elena Boschi (IV)", role: "Deputata" }], regional: [{ name: "Arno Kompatscher", role: "Pres. Prov. Bolzano" }, { name: "Maurizio Fugatti", role: "Pres. Prov. Trento" }] } },
-            "Veneto": { name: "Veneto", representatives: { european: [{ name: "Elena Donazzan (FdI)", role: "Europarlamentare" }, { name: "Alessandra Moretti (PD)", role: "Europarlamentare" }], national: [{ name: "Carlo Nordio (FdI)", role: "Ministro Giustizia" }, { name: "Elisabetta Casellati (FI)", role: "Ministro Riforme" }], regional: [{ name: "Luca Zaia", role: "Presidente Regione" }, { name: "Luigi Brugnaro", role: "Sindaco Venezia" }] } },
-            "Friuli-Venezia Giulia": { name: "Friuli-Venezia Giulia", representatives: { european: [{ name: "Anna Maria Cisint (Lega)", role: "Europarlamentare" }, { name: "Alessandro Ciriani (FdI)", role: "Europarlamentare" }], national: [{ name: "Luca Ciriani (FdI)", role: "Ministro Rapporti Parlamento" }], regional: [{ name: "Massimiliano Fedriga", role: "Presidente Regione" }, { name: "Roberto Dipiazza", role: "Sindaco Trieste" }] } },
-            "Emilia-Romagna": { name: "Emilia-Romagna", representatives: { european: [{ name: "Stefano Bonaccini (PD)", role: "Europarlamentare" }, { name: "Elisabetta Gualmini", role: "Europarlamentare" }], national: [{ name: "Galeazzo Bignami (FdI)", role: "Viceministro" }, { name: "Elly Schlein", role: "Segretaria PD" }], regional: [{ name: "Michele de Pascale", role: "Presidente Regione (2024)" }, { name: "Matteo Lepore", role: "Sindaco Bologna" }] } },
-            "Toscana": { name: "Toscana", representatives: { european: [{ name: "Dario Nardella (PD)", role: "Europarlamentare" }, { name: "Susanna Ceccardi (Lega)", role: "Europarlamentare" }], national: [{ name: "Matteo Renzi (IV)", role: "Senatore" }, { name: "Deborah Bergamini", role: "Deputata" }], regional: [{ name: "Eugenio Giani", role: "Presidente Regione" }, { name: "Sara Funaro", role: "Sindaca Firenze (2024)" }] } },
-            "Umbria": { name: "Umbria", representatives: { european: [{ name: "Marco Squarta (FdI)", role: "Europarlamentare" }], national: [{ name: "Anna Ascani (PD)", role: "Vicepres. Camera" }], regional: [{ name: "Stefania Proietti", role: "Presidente Regione (2024)" }, { name: "Vittoria Ferdinandi", role: "Sindaca Perugia (2024)" }] } },
-            "Marche": { name: "Marche", representatives: { european: [{ name: "Matteo Ricci (PD)", role: "Europarlamentare" }], national: [{ name: "Lucia Albano (FdI)", role: "Sottosegretario" }], regional: [{ name: "Francesco Acquaroli", role: "Presidente Regione" }, { name: "Daniele Silvetti", role: "Sindaco Ancona" }] } },
-            "Lazio": { name: "Lazio", representatives: { european: [{ name: "Nicola Zingaretti (PD)", role: "Capodelegazione PD" }, { name: "Antonella Sberna (FdI)", role: "Vicepres. Europarlamento" }], national: [{ name: "Giorgia Meloni", role: "Presidente del Consiglio" }, { name: "Giuseppe Conte", role: "Deputato" }], regional: [{ name: "Francesco Rocca", role: "Presidente Regione" }, { name: "Roberto Gualtieri", role: "Sindaco Roma" }] } },
-            "Abruzzo": { name: "Abruzzo", representatives: { european: [{ name: "Lucia Annunziata (PD)", role: "Europarlamentare" }], national: [{ name: "Luciano D'Alfonso (PD)", role: "Deputato" }], regional: [{ name: "Marco Marsilio", role: "Presidente Regione" }, { name: "Pierluigi Biondi", role: "Sindaco L'Aquila" }] } },
-            "Molise": { name: "Molise", representatives: { european: [{ name: "Aldo Patriciello (Lega)", role: "Europarlamentare" }], national: [{ name: "Claudio Lotito (FI)", role: "Senatore" }], regional: [{ name: "Francesco Roberti", role: "Presidente Regione" }, { name: "Marialuisa Forte", role: "Sindaca Campobasso (2024)" }] } },
-            "Campania": { name: "Campania", representatives: { european: [{ name: "Lello Topo (PD)", role: "Europarlamentare" }, { name: "Fulvio Martusciello (FI)", role: "Europarlamentare" }], national: [{ name: "Mara Carfagna (Azione)", role: "Deputata" }, { name: "Sergio Costa (M5S)", role: "Vicepres. Camera" }], regional: [{ name: "Vincenzo De Luca", role: "Presidente Regione" }, { name: "Gaetano Manfredi", role: "Sindaco Napoli" }] } },
-            "Puglia": { name: "Puglia", representatives: { european: [{ name: "Antonio Decaro (PD)", role: "Pres. Comm. Ambiente UE" }, { name: "Michele Picaro (FdI)", role: "Europarlamentare" }], national: [{ name: "Raffaele Fitto", role: "Vicepres. Esecutivo Comm. UE" }, { name: "Francesco Boccia", role: "Senatore" }], regional: [{ name: "Michele Emiliano", role: "Presidente Regione" }, { name: "Vito Leccese", role: "Sindaco Bari (2024)" }] } },
-            "Basilicata": { name: "Basilicata", representatives: { european: [{ name: "Dario Tamburrano (M5S)", role: "Europarlamentare" }], national: [{ name: "Elisabetta Casellati (FI)", role: "Ministro Riforme" }], regional: [{ name: "Vito Bardi", role: "Presidente Regione" }, { name: "Vincenzo Telesca", role: "Sindaco Potenza (2024)" }] } },
-            "Calabria": { name: "Calabria", representatives: { european: [{ name: "Mimmo Lucano (AVS)", role: "Europarlamentare" }, { name: "Giusi Princi (FdI)", role: "Europarlamentare" }], national: [{ name: "Wanda Ferro (FdI)", role: "Sottosegretario Interno" }], regional: [{ name: "Roberto Occhiuto", role: "Presidente Regione" }, { name: "Nicola Fiorita", role: "Sindaco Catanzaro" }] } },
-            "Sicilia": { name: "Sicilia", representatives: { european: [{ name: "Caterina Chinnici (FI)", role: "Europarlamentare" }, { name: "Giuseppe Lupo (PD)", role: "Europarlamentare" }], national: [{ name: "Nello Musumeci", role: "Ministro Protezione Civile" }], regional: [{ name: "Renato Schifani", role: "Presidente Regione" }, { name: "Roberto Lagalla", role: "Sindaco Palermo" }] } },
-            "Sardegna": { name: "Sardegna", representatives: { european: [{ name: "Ignazio Marino (AVS)", role: "Europarlamentare" }, { name: "Salvatore Deidda (FdI)", role: "Europarlamentare" }], national: [{ name: "Ugo Cappellacci (FI)", role: "Deputato" }], regional: [{ name: "Alessandra Todde", role: "Presidente Regione (2024)" }, { name: "Massimo Zedda", role: "Sindaco Cagliari (2024)" }] } }
-        };
-
-        // --- MOTORE AI ---
+        // --- MOTORE AI 1: RICERCA LISTA RAPPRESENTANTI ---
         const fetchRegionDataWithAI = async (regionName) => {
-            if (!apiKey) return null; // Fallback se manca la key
+            if (!apiKey) return null;
 
             const prompt = `
                 Analista politico. Regione: "${regionName}".
+                Trova una lista ESTESA dei rappresentanti attuali (2024/2025). 
+                Cerca almeno 4-6 nomi rilevanti per categoria (maggioranza e opposizione).
+
                 JSON richiesto:
                 {
                     "name": "${regionName}",
                     "representatives": {
                         "european": [{"id":"e1","name":"Nome","party":"Partito","role":"Europarlamentare"}],
-                        "national": [{"id":"n1","name":"Nome","party":"Partito","role":"Parlamentare"}],
-                        "regional": [{"id":"r1","name":"Nome","party":"Partito","role":"Presidente"}]
+                        "national": [{"id":"n1","name":"Nome","party":"Partito","role":"Senatore/Deputato/Ministro"}], 
+                        "regional": [{"id":"r1","name":"Nome","party":"Partito","role":"Presidente/Consigliere"}]
                     },
-                    "summary": "Breve frase sulla politica locale."
+                    "summary": "Analisi sintetica del clima politico (max 15 parole)."
                 }
             `;
 
@@ -141,25 +134,197 @@
                 if (!response.ok) throw new Error("Errore API");
                 const json = await response.json();
                 return JSON.parse(json.candidates[0].content.parts[0].text);
-            } catch (error) {
-                console.error("AI Error:", error);
-                return null;
+            } catch (error) { return null; }
+        };
+
+        // --- MOTORE AI 2: DETTAGLIO POLITICO (Bility Check) ---
+        const fetchRepDetails = async (repName, repRole, region) => {
+            if (!apiKey) return { error: "DemoMode" };
+            
+            const prompt = `
+                Analizza l'attività politica recente di ${repName} (${repRole}, ${region}).
+                Fornisci 3 azioni concrete recenti (voti, proposte, dichiarazioni) e un giudizio sintetico.
+                
+                JSON richiesto:
+                {
+                    "actions": [
+                        {"date": "Recente", "text": "Azione 1..."},
+                        {"date": "Recente", "text": "Azione 2..."},
+                        {"date": "Recente", "text": "Azione 3..."}
+                    ],
+                    "focus": "Su cosa si sta concentrando (max 10 parole)",
+                    "transparency_score": "Alto/Medio/Basso"
+                }
+            `;
+
+             try {
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    }
+                );
+                const json = await response.json();
+                return JSON.parse(json.candidates[0].content.parts[0].text);
+            } catch (error) { return { error: "Impossibile recuperare dettagli." }; }
+        };
+
+        // --- DATI STATICI (Fallback se AI fallisce) ---
+        const REGION_DATA = {
+            "Lombardia": { 
+                name: "Lombardia", 
+                summary: "Roccaforte del centrodestra con tensioni su sanità e trasporti.",
+                representatives: { 
+                    european: [
+                        { id: "e1", name: "Giorgio Gori", party: "PD", role: "Europarlamentare" }, 
+                        { id: "e2", name: "Roberto Vannacci", party: "Lega", role: "Europarlamentare" },
+                        { id: "e3", name: "Ilaria Salis", party: "AVS", role: "Europarlamentare" },
+                        { id: "e4", name: "Silvia Sardone", party: "Lega", role: "Europarlamentare" }
+                    ], 
+                    national: [
+                        { id: "n1", name: "Matteo Salvini", party: "Lega", role: "Vicepremier" }, 
+                        { id: "n2", name: "Ignazio La Russa", party: "FdI", role: "Pres. Senato" },
+                        { id: "n3", name: "Giancarlo Giorgetti", party: "Lega", role: "Ministro MEF" },
+                        { id: "n4", name: "Licia Ronzulli", party: "FI", role: "Senatrice" }
+                    ], 
+                    regional: [
+                        { id: "r1", name: "Attilio Fontana", party: "Lega", role: "Presidente Regione" }, 
+                        { id: "r2", name: "Giuseppe Sala", party: "Verdi", role: "Sindaco Milano" },
+                        { id: "r3", name: "Pierfrancesco Majorino", party: "PD", role: "Capogruppo Opp." },
+                        { id: "r4", name: "Romano La Russa", party: "FdI", role: "Assessore Sicurezza" }
+                    ] 
+                } 
+            },
+             "Lazio": { 
+                name: "Lazio", 
+                summary: "Governo regionale di centrodestra. Focus su Giubileo e Sanità.",
+                representatives: { 
+                    european: [{ name: "Nicola Zingaretti", party: "PD", role: "Capodelegazione" }, { name: "Antonella Sberna", party: "FdI", role: "Vicepres. UE" }], 
+                    national: [{ name: "Giorgia Meloni", party: "FdI", role: "Premier" }, { name: "Giuseppe Conte", party: "M5S", role: "Deputato" }, { name: "Claudio Durigon", party: "Lega", role: "Sottosegretario" }], 
+                    regional: [{ name: "Francesco Rocca", party: "FdI", role: "Presidente Regione" }, { name: "Roberto Gualtieri", party: "PD", role: "Sindaco Roma" }, { name: "Mario Ciarla", party: "PD", role: "Consigliere" }] 
+                } 
+            },
+            "Veneto": { 
+                name: "Veneto", 
+                summary: "Dibattito sull'autonomia differenziata.",
+                representatives: { 
+                    european: [{ name: "Elena Donazzan", party: "FdI", role: "Europarlamentare" }, { name: "Alessandra Moretti", party: "PD", role: "Europarlamentare" }], 
+                    national: [{ name: "Carlo Nordio", party: "FdI", role: "Ministro Giustizia" }, { name: "Elisabetta Casellati", party: "FI", role: "Ministro" }], 
+                    regional: [{ name: "Luca Zaia", party: "Lega", role: "Presidente Regione" }, { name: "Luigi Brugnaro", party: "CI", role: "Sindaco Venezia" }] 
+                } 
             }
         };
 
-        // --- COMPONENTS ---
+        // --- SUB-COMPONENTI (Definiti prima per evitare errori) ---
 
-        const RepCard = ({ rep }) => (
-            <div className="flex items-center gap-4 p-4 mb-3 rounded-2xl bg-white/60 border border-white/60 shadow-sm backdrop-blur-sm hover:scale-[1.01] transition-transform cursor-default">
-                <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 font-bold shadow-inner text-sm border border-white uppercase">
+        const RepDetailModal = ({ rep, region, onClose }) => {
+            const [details, setDetails] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const load = async () => {
+                    setLoading(true);
+                    
+                    const res = await fetchRepDetails(rep.name, rep.role, region);
+                    
+                    if (res && !res.error) {
+                        setDetails(res);
+                    } else {
+                         // Fallback in caso di errore AI
+                         setDetails({
+                             actions: [{ date: "N/A", text: "Impossibile recuperare azioni recenti." }],
+                             focus: "Dati non disponibili",
+                             transparency_score: "N/A"
+                         });
+                    }
+                    setLoading(false);
+                };
+                load();
+            }, [rep]);
+
+            return (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm fade-in-up" onClick={onClose}>
+                    <div className="glass-modal w-full max-w-md rounded-3xl p-6 relative shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600">
+                            <Icon path={Icons.X} />
+                        </button>
+
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg border-4 border-white">
+                                {rep.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800">{rep.name}</h3>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-bold uppercase">{rep.party}</span>
+                                    <span className="text-xs text-slate-500">{rep.role}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {loading ? (
+                            <div className="py-10 text-center text-indigo-600">
+                                <div className="animate-spin mb-3 mx-auto w-8 h-8"><Icon path={Icons.Loader2} size={32}/></div>
+                                <p className="text-sm font-medium animate-pulse">Analisi attività in corso...</p>
+                            </div>
+                        ) : details ? (
+                            <div className="space-y-6">
+                                <div>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <Icon path={Icons.TrendingUp} size={14}/> Ultime Azioni
+                                    </h4>
+                                    <div className="space-y-3">
+                                        {details.actions?.map((act, i) => (
+                                            <div key={i} className="flex gap-3 text-sm">
+                                                <div className="min-w-[4px] bg-indigo-200 rounded-full mt-1 h-auto"></div>
+                                                <div>
+                                                    <span className="text-xs text-slate-400 font-medium block">{act.date}</span>
+                                                    <span className="text-slate-700 leading-snug">{act.text}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <div className="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="text-[10px] text-slate-400 uppercase font-bold">Focus</div>
+                                        <div className="text-sm font-semibold text-slate-700 mt-1">{details.focus}</div>
+                                    </div>
+                                    <div className="flex-1 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                                        <div className="text-[10px] text-emerald-600 uppercase font-bold">Trasparenza</div>
+                                        <div className="text-sm font-bold text-emerald-800 mt-1">{details.transparency_score}</div>
+                                    </div>
+                                </div>
+                                
+                                <a href={`https://www.google.com/search?q=${rep.name}+attività+politica`} target="_blank" className="flex items-center justify-center gap-2 w-full py-3 mt-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-medium transition-colors cursor-pointer no-underline">
+                                    Approfondisci su Google <Icon path={Icons.ExternalLink} size={14} />
+                                </a>
+                            </div>
+                        ) : (
+                            <p className="text-center text-red-500 text-sm">Dati non disponibili.</p>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const RepCard = ({ rep, onClick }) => (
+            <div onClick={onClick} className="group flex items-center gap-4 p-4 mb-3 rounded-2xl bg-white/60 border border-white/60 shadow-sm backdrop-blur-sm hover:scale-[1.02] hover:bg-white/90 transition-all cursor-pointer">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-indigo-700 font-bold shadow-inner text-sm border border-white uppercase group-hover:scale-110 transition-transform">
                     {rep.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-slate-800 text-sm truncate">{rep.name}</h3>
+                    <h3 className="font-bold text-slate-800 text-sm truncate group-hover:text-indigo-700 transition-colors">{rep.name}</h3>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs">
                         <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider">{rep.party}</span>
                         <span className="text-slate-500 truncate">{rep.role}</span>
                     </div>
+                </div>
+                <div className="text-slate-300 group-hover:text-indigo-400 transition-colors">
+                    <Icon path={Icons.ChevronRight} size={18} />
                 </div>
             </div>
         );
@@ -171,7 +336,7 @@
             </div>
         );
 
-        // --- MAPPA REALE (Path Cartografici Veri) ---
+        // --- MAPPA REALE (Vettori Cartografici) ---
         const ItalyMap = ({ onSelect, selected }) => {
             const getFill = (id) => `region-path ${selected === id ? 'active' : ''}`;
             
@@ -205,42 +370,48 @@
             );
         };
 
-        // --- APP PRINCIPALE ---
+        // --- APP MAIN ---
         const App = () => {
             const [selectedRegion, setSelectedRegion] = useState(null);
             const [data, setData] = useState(null);
             const [loading, setLoading] = useState(false);
+            const [selectedRep, setSelectedRep] = useState(null);
             const scrollRef = useRef(null);
 
             const handleSelect = async (regionId) => {
-                if (selectedRegion === regionId) return;
+                if(selectedRegion === regionId) return;
                 
                 setSelectedRegion(regionId);
                 setLoading(true);
                 setData(null);
 
-                // Tentativo chiamata AI
+                // Prova AI
                 const aiResult = await fetchRegionDataWithAI(regionId);
                 
                 if (aiResult) {
                     setData(aiResult);
                 } else {
-                    // Fallback su dati statici
-                    setData(REGION_DATA[regionId] || { name: regionId, representatives: { european: [], national: [], regional: [] }, summary: "Dati non disponibili." });
+                    // Fallback con dati statici espansi
+                    const fallback = REGION_DATA[regionId] || { name: regionId, representatives: { european: [], national: [], regional: [] }, summary: "Dati non disponibili." };
+                    setData(fallback);
                 }
 
                 setLoading(false);
                 if (scrollRef.current) scrollRef.current.scrollTop = 0;
             };
 
-            const closePanel = () => {
-                setSelectedRegion(null);
-                setData(null);
-            };
-
             return (
-                <div className="h-screen w-full flex flex-col overflow-hidden text-slate-800">
+                <div className="h-screen w-full flex flex-col overflow-hidden text-slate-800 relative">
                     
+                    {/* MODAL DETTAGLIO */}
+                    {selectedRep && (
+                        <RepDetailModal 
+                            rep={selectedRep} 
+                            region={selectedRegion} 
+                            onClose={() => setSelectedRep(null)} 
+                        />
+                    )}
+
                     <header className="px-6 py-4 flex justify-between items-center glass-panel z-20 m-4 rounded-2xl shadow-sm flex-shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg">
@@ -249,76 +420,59 @@
                             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-indigo-900 tracking-tight">Bility</h1>
                         </div>
                         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white/50 rounded-full border border-white/60 text-xs font-medium text-slate-600">
-                            <Icon path={Icons.Sparkles} size={14} className="text-indigo-500" />
-                            <span>{apiKey ? "Analisi Live" : "Modalità Demo"}</span>
+                            <Icon path={Icons.Sparkles} className="text-indigo-500" />
+                            <span>{apiKey ? "AI Live" : "Modalità Demo"}</span>
                         </div>
                     </header>
 
                     <main className="flex-1 flex flex-col md:flex-row gap-4 p-4 pt-0 overflow-hidden relative z-10">
                         
-                        <div className="flex-1 relative glass-panel rounded-[2rem] shadow-xl overflow-hidden flex flex-col items-center justify-center group">
+                        <div className="flex-1 relative glass-panel rounded-[2rem] overflow-hidden flex flex-col items-center justify-center">
                             <div className={`absolute top-8 left-8 transition-opacity duration-300 ${selectedRegion ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                                <h2 className="text-3xl font-bold text-slate-800">Seleziona<br/>una Regione</h2>
-                                <p className="text-slate-500 mt-2 text-sm">Clicca sulla mappa per vedere i rappresentanti.</p>
+                                <h2 className="text-3xl font-bold text-slate-800">Seleziona una Regione</h2>
+                                <p className="text-slate-500 mt-2 text-sm">Clicca per scoprire i rappresentanti.</p>
                             </div>
                             <ItalyMap onSelect={handleSelect} selected={selectedRegion} />
                         </div>
 
-                        <div className="flex-1 md:max-w-md h-full flex flex-col glass-panel rounded-[2rem] shadow-xl overflow-hidden transition-all duration-500">
-                            
+                        <div className="flex-1 md:max-w-md h-full flex flex-col glass-panel rounded-[2rem] overflow-hidden transition-all duration-500">
                             {!selectedRegion && (
                                 <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-10 text-center">
-                                    <div className="w-16 h-16 rounded-full bg-white/50 flex items-center justify-center mb-4 shadow-sm animate-bounce text-indigo-300">
-                                        <Icon path={Icons.Search} size={24} />
-                                    </div>
-                                    <p className="text-sm font-medium">Nessuna regione selezionata</p>
+                                    <div className="w-16 h-16 rounded-full bg-white/50 flex items-center justify-center mb-4 text-indigo-300"><Icon path={Icons.Search} size={24}/></div>
+                                    <p className="text-sm">Nessuna regione selezionata</p>
                                 </div>
                             )}
 
                             {loading && (
-                                <div className="flex-1 flex flex-col items-center justify-center text-indigo-900 p-8 text-center animate-in fade-in">
-                                    <div className="animate-spin text-indigo-600 mb-4"><Icon path={Icons.Loader2} size={32} /></div>
-                                    <h3 className="font-bold text-lg">Analisi in corso...</h3>
+                                <div className="flex-1 flex flex-col items-center justify-center text-indigo-900">
+                                    <div className="animate-spin text-indigo-600 mb-4"><Icon path={Icons.Loader2} size={32}/></div>
+                                    <h3 className="font-bold">Recupero dati...</h3>
                                 </div>
                             )}
 
                             {data && !loading && (
                                 <div className="flex flex-col h-full">
-                                    <div className="flex-shrink-0 p-6 pb-4 border-b border-white/50 bg-white/40 backdrop-blur-md z-20 flex justify-between items-start">
+                                    <div className="flex-shrink-0 p-6 pb-4 border-b border-white/50 bg-white/40 backdrop-blur-md z-20 flex justify-between">
                                         <div>
                                             <h2 className="text-2xl font-bold text-slate-900">{data.name}</h2>
-                                            <p className="text-xs text-slate-500 mt-1">Rappresentanti Eletti</p>
+                                            <p className="text-xs text-slate-500 mt-1">Clicca sui nomi per i dettagli</p>
                                         </div>
-                                        <button onClick={closePanel} className="p-1.5 hover:bg-slate-200/50 rounded-full transition-colors text-slate-500">
-                                            <Icon path={Icons.X} size={20} />
-                                        </button>
+                                        <button onClick={() => setSelectedRegion(null)} className="p-1.5 hover:bg-slate-200/50 rounded-full transition-colors text-slate-500"><Icon path={Icons.X} size={20}/></button>
                                     </div>
 
                                     <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-2">
+                                        <SectionHeader icon={Icons.Globe} title="Europei" color="bg-blue-600" />
+                                        {data.representatives.european?.map((r, i) => <RepCard key={i} rep={r} onClick={() => setSelectedRep(r)} />)}
                                         
-                                        {!apiKey && (
-                                            <div className="mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3">
-                                                <div className="text-indigo-500 mt-0.5"><Icon path={Icons.Info} size={16} /></div>
-                                                <div className="text-xs text-indigo-800">
-                                                    <strong>Modalità Demo:</strong> Stai vedendo i dati statici. Per attivare l'AI in tempo reale, aggiungi la tua API Key nel codice.
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <SectionHeader icon={Icons.Globe} title="Parlamento Europeo" color="bg-blue-600" />
-                                        {data.representatives.european.map((r, i) => <RepCard key={i} rep={r} />)}
-
-                                        <SectionHeader icon={Icons.Landmark} title="Parlamento Nazionale" color="bg-red-600" />
-                                        {data.representatives.national.map((r, i) => <RepCard key={i} rep={r} />)}
-
-                                        <SectionHeader icon={Icons.Award} title="Regione & Locale" color="bg-emerald-600" />
-                                        {data.representatives.regional.map((r, i) => <RepCard key={i} rep={r} />)}
+                                        <SectionHeader icon={Icons.Landmark} title="Nazionali" color="bg-red-600" />
+                                        {data.representatives.national?.map((r, i) => <RepCard key={i} rep={r} onClick={() => setSelectedRep(r)} />)}
                                         
+                                        <SectionHeader icon={Icons.Award} title="Locali" color="bg-emerald-600" />
+                                        {data.representatives.regional?.map((r, i) => <RepCard key={i} rep={r} onClick={() => setSelectedRep(r)} />)}
                                         <div className="h-8"></div>
                                     </div>
                                 </div>
                             )}
-
                         </div>
                     </main>
                 </div>
