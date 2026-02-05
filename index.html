@@ -14,7 +14,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <style>
-        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; touch-action: manipulation; }
         
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -44,7 +44,7 @@
             stroke-linejoin: round;
             stroke-linecap: round;
             paint-order: stroke; 
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: fill 0.25s, stroke 0.25s; /* Removed transform to avoid conflict with zoom */
             cursor: pointer;
             vector-effect: non-scaling-stroke;
             outline: none; 
@@ -55,7 +55,6 @@
             stroke: #818cf8;
             z-index: 50;
             filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.5));
-            transform: scale(1.005);
         }
 
         .region-path.active {
@@ -94,7 +93,10 @@
             Loader2: <path d="M21 12a9 9 0 1 1-6.219-8.56"/>,
             ChevronRight: <path d="m9 18 6-6-6-6"/>,
             TrendingUp: <g><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></g>,
-            ExternalLink: <g><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></g>
+            ExternalLink: <g><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></g>,
+            Plus: <g><path d="M5 12h14"/><path d="M12 5v14"/></g>,
+            Minus: <path d="M5 12h14"/>,
+            RotateCcw: <g><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></g>
         };
 
         // --- CONFIGURAZIONE API ---
@@ -122,7 +124,6 @@
             `;
 
             try {
-                // FIXED: Usa gemini-1.5-flash
                 const response = await fetch(
                     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
                     {
@@ -131,7 +132,7 @@
                         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                     }
                 );
-                if (!response.ok) throw new Error(`Errore API: ${response.status}`);
+                if (!response.ok) throw new Error("Errore API");
                 const json = await response.json();
                 let text = json.candidates[0].content.parts[0].text;
                 // Pulizia markdown nel caso l'AI aggiunga ```json
@@ -164,7 +165,6 @@
             `;
 
              try {
-                // FIXED: Usa gemini-1.5-flash
                 const response = await fetch(
                     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
                     {
@@ -173,17 +173,11 @@
                         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                     }
                 );
-                
-                if (!response.ok) throw new Error(`Errore API: ${response.status} ${response.statusText}`);
-
                 const json = await response.json();
                 let text = json.candidates[0].content.parts[0].text;
                 text = text.replace(/```json/g, '').replace(/```/g, '').trim();
                 return JSON.parse(text);
-            } catch (error) { 
-                console.error("Detail Error:", error);
-                return { error: "Impossibile recuperare dettagli." }; 
-            }
+            } catch (error) { return { error: "Impossibile recuperare dettagli." }; }
         };
 
         // --- DATI STATICI (Fallback esteso) ---
@@ -360,36 +354,78 @@
             </div>
         );
 
-        // --- MAPPA REALE (Vettori Cartografici) ---
+        // --- MAPPA ITALIA CON ZOOM E PAN ---
         const ItalyMap = ({ onSelect, selected }) => {
+            const [zoom, setZoom] = useState(1);
+            const [pan, setPan] = useState({ x: 0, y: 0 });
+            const [isDragging, setIsDragging] = useState(false);
+            const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
             const getFill = (id) => `region-path ${selected === id ? 'active' : ''}`;
-            
+
+            const handleWheel = (e) => {
+                e.preventDefault();
+                const scaleAmount = -e.deltaY * 0.001;
+                setZoom(z => Math.min(Math.max(0.5, z + scaleAmount), 4));
+            };
+            const zoomIn = () => setZoom(z => Math.min(z + 0.3, 4));
+            const zoomOut = () => setZoom(z => Math.max(z - 0.3, 0.5));
+            const resetView = () => { setZoom(1); setPan({x:0, y:0}); };
+
+            const handleMouseDown = (e) => {
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            };
+            const handleMouseMove = (e) => {
+                if (!isDragging) return;
+                setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+            };
+            const handleMouseUp = () => setIsDragging(false);
+
             return (
-                <div className="w-full h-full p-4 flex items-center justify-center map-container">
-                    <svg viewBox="0 0 600 800" className="w-full h-full max-h-[85vh]" style={{ overflow: 'visible' }}>
-                        <g transform="translate(10, 160) scale(1.1)">
-                            <path id="Valle d'Aosta" onClick={()=>onSelect("Valle d'Aosta")} className={getFill("Valle d'Aosta")} d="M72.5,58.8 L78.4,59.3 L84.3,55.9 L89.8,55.4 L95.7,58.3 L97.4,62.8 L92.8,72.4 L85.2,74.9 L81.0,83.3 L72.1,80.4 L67.1,72.4 L67.9,64.4 L72.5,58.8 Z" />
-                            <path id="Piemonte" onClick={()=>onSelect("Piemonte")} className={getFill("Piemonte")} d="M97.4,62.8 L111.3,64.9 L116.3,73.7 L127.3,77.5 L129.8,88.9 L126.9,101.9 L132.8,114.5 L124.3,121.2 L109.2,135.5 L89.4,136.3 L83.1,146.4 L68.8,136.3 L55.3,130.4 L46.0,111.9 L47.3,96.8 L59.1,75.4 L67.9,64.4 L72.1,80.4 L81.0,83.3 L85.2,74.9 L92.8,72.4 L97.4,62.8 Z" />
-                            <path id="Lombardia" onClick={()=>onSelect("Lombardia")} className={getFill("Lombardia")} d="M127.3,77.5 L144.1,64.9 L154.6,50.6 L174.0,46.0 L187.9,51.9 L198.8,62.4 L204.7,58.6 L211.0,64.9 L211.0,85.5 L203.0,91.8 L203.4,103.6 L195.9,109.5 L183.2,109.9 L171.9,117.0 L156.3,113.7 L152.1,123.3 L142.0,123.7 L132.8,114.5 L126.9,101.9 L129.8,88.9 L127.3,77.5 Z" />
-                            <path id="Trentino-Alto Adige" onClick={()=>onSelect("Trentino-Alto Adige")} className={getFill("Trentino-Alto Adige")} d="M211.0,64.9 L217.3,55.6 L237.9,46.0 L259.0,47.2 L267.0,59.8 L259.4,75.0 L248.9,81.7 L241.7,80.0 L234.1,98.1 L219.0,103.6 L212.7,98.5 L211.0,85.5 L211.0,64.9 Z" />
-                            <path id="Veneto" onClick={()=>onSelect("Veneto")} className={getFill("Veneto")} d="M219.0,103.6 L234.1,98.1 L241.7,80.0 L248.9,81.7 L259.4,75.0 L267.0,59.8 L271.6,63.2 L274.5,84.6 L283.4,85.0 L287.6,104.4 L276.6,107.7 L263.2,126.7 L248.9,135.5 L231.2,120.4 L214.3,121.6 L208.4,115.3 L203.4,103.6 L219.0,103.6 Z" />
-                            <path id="Friuli-Venezia Giulia" onClick={()=>onSelect("Friuli-Venezia Giulia")} className={getFill("Friuli-Venezia Giulia")} d="M259.4,75.0 L277.5,74.2 L285.9,79.2 L297.7,78.0 L301.9,89.3 L287.6,104.4 L283.4,85.0 L274.5,84.6 L271.6,63.2 L259.4,75.0 Z" />
-                            <path id="Liguria" onClick={()=>onSelect("Liguria")} className={getFill("Liguria")} d="M89.4,136.3 L109.2,135.5 L124.3,121.2 L142.0,123.7 L152.1,123.3 L163.4,136.8 L152.1,146.4 L139.9,141.0 L131.0,147.7 L115.9,144.3 L104.1,148.5 L97.4,142.2 L89.4,136.3 Z" />
-                            <path id="Emilia-Romagna" onClick={()=>onSelect("Emilia-Romagna")} className={getFill("Emilia-Romagna")} d="M124.3,121.2 L132.8,114.5 L142.0,123.7 L156.3,113.7 L171.9,117.0 L183.2,109.9 L195.9,109.5 L203.4,103.6 L208.4,115.3 L214.3,121.6 L231.2,120.4 L248.9,135.5 L253.9,149.8 L244.2,162.0 L231.2,154.8 L219.0,165.8 L197.9,158.2 L179.8,168.7 L163.4,136.8 L152.1,123.3 L142.0,123.7 L124.3,121.2 Z" />
-                            <path id="Toscana" onClick={()=>onSelect("Toscana")} className={getFill("Toscana")} d="M163.4,136.8 L179.8,168.7 L197.9,158.2 L206.3,169.1 L195.9,186.8 L199.2,198.6 L189.1,207.0 L176.5,204.0 L166.0,223.4 L142.0,202.8 L137.8,187.6 L148.3,178.4 L145.4,166.2 L152.1,146.4 L163.4,136.8 Z" />
-                            <path id="Umbria" onClick={()=>onSelect("Umbria")} className={getFill("Umbria")} d="M197.9,158.2 L219.0,165.8 L228.3,194.0 L211.4,204.0 L199.2,198.6 L195.9,186.8 L206.3,169.1 L197.9,158.2 Z" />
-                            <path id="Marche" onClick={()=>onSelect("Marche")} className={getFill("Marche")} d="M219.0,165.8 L231.2,154.8 L244.2,162.0 L253.9,149.8 L265.7,162.0 L266.1,178.8 L253.9,190.2 L237.9,188.5 L228.3,194.0 L219.0,165.8 Z" />
-                            <path id="Lazio" onClick={()=>onSelect("Lazio")} className={getFill("Lazio")} d="M166.0,223.4 L176.5,204.0 L189.1,207.0 L199.2,198.6 L211.4,204.0 L228.3,194.0 L237.9,188.5 L245.9,199.4 L240.4,213.3 L255.6,236.1 L234.1,257.5 L217.3,250.8 L206.3,239.0 L197.9,252.9 L180.2,246.6 L166.0,223.4 Z" />
-                            <path id="Abruzzo" onClick={()=>onSelect("Abruzzo")} className={getFill("Abruzzo")} d="M237.9,188.5 L253.9,190.2 L266.1,178.8 L283.4,196.4 L272.8,217.1 L255.6,236.1 L240.4,213.3 L245.9,199.4 L237.9,188.5 Z" />
-                            <path id="Molise" onClick={()=>onSelect("Molise")} className={getFill("Molise")} d="M255.6,236.1 L272.8,217.1 L291.8,223.0 L293.9,235.6 L280.0,248.6 L255.6,236.1 Z" />
-                            <path id="Campania" onClick={()=>onSelect("Campania")} className={getFill("Campania")} d="M217.3,250.8 L234.1,257.5 L255.6,236.1 L280.0,248.6 L277.5,257.9 L296.8,272.2 L288.0,296.6 L278.3,293.2 L275.8,309.2 L260.6,281.4 L244.2,284.8 L230.7,267.5 L217.3,250.8 Z" />
-                            <path id="Puglia" onClick={()=>onSelect("Puglia")} className={getFill("Puglia")} d="M291.8,223.0 L303.6,215.0 L313.7,219.2 L320.4,242.0 L333.1,241.1 L360.0,277.3 L381.1,281.5 L391.2,298.3 L369.3,313.1 L341.5,296.2 L332.2,299.6 L311.1,273.9 L296.8,272.2 L277.5,257.9 L280.0,248.6 L293.9,235.6 L291.8,223.0 Z" />
-                            <path id="Basilicata" onClick={()=>onSelect("Basilicata")} className={getFill("Basilicata")} d="M277.5,257.9 L296.8,272.2 L311.1,273.9 L306.9,286.1 L319.1,299.2 L314.9,313.9 L298.5,316.0 L287.1,304.2 L288.0,296.6 L296.8,272.2 L277.5,257.9 Z" />
-                            <path id="Calabria" onClick={()=>onSelect("Calabria")} className={getFill("Calabria")} d="M298.5,316.0 L314.9,313.9 L323.7,321.9 L321.6,350.2 L297.6,368.7 L287.1,365.3 L287.1,346.8 L296.8,328.7 L287.1,304.2 L298.5,316.0 Z" />
-                            <path id="Sicilia" onClick={()=>onSelect("Sicilia")} className={getFill("Sicilia")} d="M228.0,365.3 L272.0,358.5 L285.0,369.5 L276.0,390.0 L250.0,415.0 L195.0,400.0 L190.0,380.0 L228.0,365.3 Z" />
-                            <path id="Sardegna" onClick={()=>onSelect("Sardegna")} className={getFill("Sardegna")} d="M45.0,230.0 L90.0,225.0 L95.0,290.0 L75.0,320.0 L35.0,310.0 L45.0,230.0 Z" />
-                        </g>
-                    </svg>
+                <div className="w-full h-full relative overflow-hidden bg-slate-50/0 rounded-[2rem] border border-white/20 select-none">
+                    {/* Zoom Controls */}
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+                        <button onClick={zoomIn} className="p-2 bg-white/90 shadow-md rounded-lg text-slate-600 hover:text-indigo-600 transition-colors"><Icon path={Icons.Plus} /></button>
+                        <button onClick={zoomOut} className="p-2 bg-white/90 shadow-md rounded-lg text-slate-600 hover:text-indigo-600 transition-colors"><Icon path={Icons.Minus} /></button>
+                        <button onClick={resetView} className="p-2 bg-white/90 shadow-md rounded-lg text-slate-600 hover:text-indigo-600 transition-colors" title="Reset"><Icon path={Icons.RotateCcw} /></button>
+                    </div>
+
+                    <div 
+                        className="w-full h-full cursor-move flex items-center justify-center p-4 map-container"
+                        onWheel={handleWheel}
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
+                        <svg viewBox="0 0 600 800" className="w-full h-full max-h-[85vh]" style={{ overflow: 'visible' }}>
+                            <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+                                <g transform="translate(10, 160) scale(1.1)">
+                                    <path id="Valle d'Aosta" onClick={()=>onSelect("Valle d'Aosta")} className={getFill("Valle d'Aosta")} d="M72.5,58.8 L78.4,59.3 L84.3,55.9 L89.8,55.4 L95.7,58.3 L97.4,62.8 L92.8,72.4 L85.2,74.9 L81.0,83.3 L72.1,80.4 L67.1,72.4 L67.9,64.4 L72.5,58.8 Z" />
+                                    <path id="Piemonte" onClick={()=>onSelect("Piemonte")} className={getFill("Piemonte")} d="M97.4,62.8 L111.3,64.9 L116.3,73.7 L127.3,77.5 L129.8,88.9 L126.9,101.9 L132.8,114.5 L124.3,121.2 L109.2,135.5 L89.4,136.3 L83.1,146.4 L68.8,136.3 L55.3,130.4 L46.0,111.9 L47.3,96.8 L59.1,75.4 L67.9,64.4 L72.1,80.4 L81.0,83.3 L85.2,74.9 L92.8,72.4 L97.4,62.8 Z" />
+                                    <path id="Lombardia" onClick={()=>onSelect("Lombardia")} className={getFill("Lombardia")} d="M127.3,77.5 L144.1,64.9 L154.6,50.6 L174.0,46.0 L187.9,51.9 L198.8,62.4 L204.7,58.6 L211.0,64.9 L211.0,85.5 L203.0,91.8 L203.4,103.6 L195.9,109.5 L183.2,109.9 L171.9,117.0 L156.3,113.7 L152.1,123.3 L142.0,123.7 L132.8,114.5 L126.9,101.9 L129.8,88.9 L127.3,77.5 Z" />
+                                    <path id="Trentino-Alto Adige" onClick={()=>onSelect("Trentino-Alto Adige")} className={getFill("Trentino-Alto Adige")} d="M211.0,64.9 L217.3,55.6 L237.9,46.0 L259.0,47.2 L267.0,59.8 L259.4,75.0 L248.9,81.7 L241.7,80.0 L234.1,98.1 L219.0,103.6 L212.7,98.5 L211.0,85.5 L211.0,64.9 Z" />
+                                    <path id="Veneto" onClick={()=>onSelect("Veneto")} className={getFill("Veneto")} d="M219.0,103.6 L234.1,98.1 L241.7,80.0 L248.9,81.7 L259.4,75.0 L267.0,59.8 L271.6,63.2 L274.5,84.6 L283.4,85.0 L287.6,104.4 L276.6,107.7 L263.2,126.7 L248.9,135.5 L231.2,120.4 L214.3,121.6 L208.4,115.3 L203.4,103.6 L219.0,103.6 Z" />
+                                    <path id="Friuli-Venezia Giulia" onClick={()=>onSelect("Friuli-Venezia Giulia")} className={getFill("Friuli-Venezia Giulia")} d="M259.4,75.0 L277.5,74.2 L285.9,79.2 L297.7,78.0 L301.9,89.3 L287.6,104.4 L283.4,85.0 L274.5,84.6 L271.6,63.2 L259.4,75.0 Z" />
+                                    <path id="Liguria" onClick={()=>onSelect("Liguria")} className={getFill("Liguria")} d="M89.4,136.3 L109.2,135.5 L124.3,121.2 L142.0,123.7 L152.1,123.3 L163.4,136.8 L152.1,146.4 L139.9,141.0 L131.0,147.7 L115.9,144.3 L104.1,148.5 L97.4,142.2 L89.4,136.3 Z" />
+                                    <path id="Emilia-Romagna" onClick={()=>onSelect("Emilia-Romagna")} className={getFill("Emilia-Romagna")} d="M124.3,121.2 L132.8,114.5 L142.0,123.7 L156.3,113.7 L171.9,117.0 L183.2,109.9 L195.9,109.5 L203.4,103.6 L208.4,115.3 L214.3,121.6 L231.2,120.4 L248.9,135.5 L253.9,149.8 L244.2,162.0 L231.2,154.8 L219.0,165.8 L197.9,158.2 L179.8,168.7 L163.4,136.8 L152.1,123.3 L142.0,123.7 L124.3,121.2 Z" />
+                                    <path id="Toscana" onClick={()=>onSelect("Toscana")} className={getFill("Toscana")} d="M163.4,136.8 L179.8,168.7 L197.9,158.2 L206.3,169.1 L195.9,186.8 L199.2,198.6 L189.1,207.0 L176.5,204.0 L166.0,223.4 L142.0,202.8 L137.8,187.6 L148.3,178.4 L145.4,166.2 L152.1,146.4 L163.4,136.8 Z" />
+                                    <path id="Umbria" onClick={()=>onSelect("Umbria")} className={getFill("Umbria")} d="M197.9,158.2 L219.0,165.8 L228.3,194.0 L211.4,204.0 L199.2,198.6 L195.9,186.8 L206.3,169.1 L197.9,158.2 Z" />
+                                    <path id="Marche" onClick={()=>onSelect("Marche")} className={getFill("Marche")} d="M219.0,165.8 L231.2,154.8 L244.2,162.0 L253.9,149.8 L265.7,162.0 L266.1,178.8 L253.9,190.2 L237.9,188.5 L228.3,194.0 L219.0,165.8 Z" />
+                                    <path id="Lazio" onClick={()=>onSelect("Lazio")} className={getFill("Lazio")} d="M166.0,223.4 L176.5,204.0 L189.1,207.0 L199.2,198.6 L211.4,204.0 L228.3,194.0 L237.9,188.5 L245.9,199.4 L240.4,213.3 L255.6,236.1 L234.1,257.5 L217.3,250.8 L206.3,239.0 L197.9,252.9 L180.2,246.6 L166.0,223.4 Z" />
+                                    <path id="Abruzzo" onClick={()=>onSelect("Abruzzo")} className={getFill("Abruzzo")} d="M237.9,188.5 L253.9,190.2 L266.1,178.8 L283.4,196.4 L272.8,217.1 L255.6,236.1 L240.4,213.3 L245.9,199.4 L237.9,188.5 Z" />
+                                    <path id="Molise" onClick={()=>onSelect("Molise")} className={getFill("Molise")} d="M255.6,236.1 L272.8,217.1 L291.8,223.0 L293.9,235.6 L280.0,248.6 L255.6,236.1 Z" />
+                                    <path id="Campania" onClick={()=>onSelect("Campania")} className={getFill("Campania")} d="M217.3,250.8 L234.1,257.5 L255.6,236.1 L280.0,248.6 L277.5,257.9 L296.8,272.2 L288.0,296.6 L278.3,293.2 L275.8,309.2 L260.6,281.4 L244.2,284.8 L230.7,267.5 L217.3,250.8 Z" />
+                                    <path id="Puglia" onClick={()=>onSelect("Puglia")} className={getFill("Puglia")} d="M291.8,223.0 L303.6,215.0 L313.7,219.2 L320.4,242.0 L333.1,241.1 L360.0,277.3 L381.1,281.5 L391.2,298.3 L369.3,313.1 L341.5,296.2 L332.2,299.6 L311.1,273.9 L296.8,272.2 L277.5,257.9 L280.0,248.6 L293.9,235.6 L291.8,223.0 Z" />
+                                    <path id="Basilicata" onClick={()=>onSelect("Basilicata")} className={getFill("Basilicata")} d="M277.5,257.9 L296.8,272.2 L311.1,273.9 L306.9,286.1 L319.1,299.2 L314.9,313.9 L298.5,316.0 L287.1,304.2 L288.0,296.6 L296.8,272.2 L277.5,257.9 Z" />
+                                    <path id="Calabria" onClick={()=>onSelect("Calabria")} className={getFill("Calabria")} d="M298.5,316.0 L314.9,313.9 L323.7,321.9 L321.6,350.2 L297.6,368.7 L287.1,365.3 L287.1,346.8 L296.8,328.7 L287.1,304.2 L298.5,316.0 Z" />
+                                    <path id="Sicilia" onClick={()=>onSelect("Sicilia")} className={getFill("Sicilia")} d="M228.0,365.3 L272.0,358.5 L285.0,369.5 L276.0,390.0 L250.0,415.0 L195.0,400.0 L190.0,380.0 L228.0,365.3 Z" />
+                                    <path id="Sardegna" onClick={()=>onSelect("Sardegna")} className={getFill("Sardegna")} d="M45.0,230.0 L90.0,225.0 L95.0,290.0 L75.0,320.0 L35.0,310.0 L45.0,230.0 Z" />
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
                 </div>
             );
         };
