@@ -100,24 +100,28 @@
         // --- CONFIGURAZIONE API ---
         const apiKey = "AIzaSyDQ2EgOwmUWfGn5YzLzYSksmYccy7k7KqA";
 
-        // --- MOTORE AI 1: RICERCA LISTA RAPPRESENTANTI (Massiva) ---
+        // --- MOTORE AI 1: RICERCA LISTA RAPPRESENTANTI (Massiva ed Estesa) ---
         const fetchRegionDataWithAI = async (regionName) => {
             if (!apiKey) return null;
 
             const prompt = `
                 Analista politico. Regione: "${regionName}".
-                Trova una lista ESTESA dei rappresentanti attuali (2024/2025). 
+                Trova una lista MOLTO ESTESA dei rappresentanti attuali (2024/2025). 
                 
-                IMPORTANTE: Cerca almeno 5-8 nomi per categoria (se possibile).
-                Includi sia rappresentanti di maggioranza che di opposizione.
+                OBIETTIVO: Fornire un quadro completo della rappresentanza.
+                - EUROPEI: Elenca almeno 8-10 europarlamentari eletti nella circoscrizione di appartenenza.
+                - NAZIONALI: Elenca almeno 8-10 parlamentari (Deputati e Senatori) eletti nei collegi della regione o figure di spicco locali.
+                - REGIONALI: Elenca almeno 8-10 membri (Presidente, Assessori chiave, Sindaci capoluoghi, Consiglieri opposizione).
+
+                IMPORTANTE: Includi un mix bilanciato di partiti (Maggioranza e Opposizione).
                 
                 JSON richiesto (senza markdown):
                 {
                     "name": "${regionName}",
                     "representatives": {
                         "european": [{"id":"e1","name":"Nome","party":"Partito","role":"Europarlamentare"}],
-                        "national": [{"id":"n1","name":"Nome","party":"Partito","role":"Senatore/Deputato/Ministro"}], 
-                        "regional": [{"id":"r1","name":"Nome","party":"Partito","role":"Presidente/Consigliere"}]
+                        "national": [{"id":"n1","name":"Nome","party":"Partito","role":"Senatore/Deputato"}], 
+                        "regional": [{"id":"r1","name":"Nome","party":"Partito","role":"Carica"}]
                     },
                     "summary": "Analisi sintetica del clima politico (max 15 parole)."
                 }
@@ -172,28 +176,66 @@
             } catch (error) { return { error: "Impossibile recuperare dettagli." }; }
         };
 
-        // --- DATI REALI 2025 (Fallback completo per tutte le regioni) ---
+        // --- DATI STATICI (Fallback esteso) ---
         const REGION_DATA = {
-            "Valle d'Aosta": { name: "Valle d'Aosta", representatives: { european: [{ name: "Ilaria Salis (AVS)", role: "Europarlamentare" }], national: [{ name: "Franco Manes (UV)", role: "Deputato" }], regional: [{ name: "Renzo Testolin", role: "Presidente Regione" }, { name: "Gianni Nuti", role: "Sindaco Aosta" }] } },
-            "Piemonte": { name: "Piemonte", representatives: { european: [{ name: "Cecilia Strada (PD)", role: "Europarlamentare" }], national: [{ name: "Guido Crosetto (FdI)", role: "Ministro Difesa" }], regional: [{ name: "Alberto Cirio", role: "Presidente Regione" }, { name: "Stefano Lo Russo", role: "Sindaco Torino" }] } },
-            "Liguria": { name: "Liguria", representatives: { european: [{ name: "Brando Benifei (PD)", role: "Europarlamentare" }], national: [{ name: "Edoardo Rixi (Lega)", role: "Viceministro" }], regional: [{ name: "Marco Bucci", role: "Presidente Regione (2024)" }, { name: "Pietro Piciocchi", role: "Vicesindaco Genova" }] } },
-            "Lombardia": { name: "Lombardia", representatives: { european: [{ name: "Giorgio Gori (PD)", role: "Europarlamentare" }, { name: "Roberto Vannacci (Lega)", role: "Europarlamentare" }], national: [{ name: "Matteo Salvini (Lega)", role: "Vicepremier" }], regional: [{ name: "Attilio Fontana", role: "Presidente Regione" }, { name: "Giuseppe Sala", role: "Sindaco Milano" }] } },
-            "Trentino-Alto Adige": { name: "Trentino-Alto Adige", representatives: { european: [{ name: "Herbert Dorfmann (SVP)", role: "Europarlamentare" }], national: [{ name: "Maria Elena Boschi (IV)", role: "Deputata" }], regional: [{ name: "Arno Kompatscher", role: "Pres. Prov. Bolzano" }, { name: "Maurizio Fugatti", role: "Pres. Prov. Trento" }] } },
-            "Veneto": { name: "Veneto", representatives: { european: [{ name: "Elena Donazzan (FdI)", role: "Europarlamentare" }], national: [{ name: "Carlo Nordio (FdI)", role: "Ministro Giustizia" }], regional: [{ name: "Luca Zaia", role: "Presidente Regione" }, { name: "Luigi Brugnaro", role: "Sindaco Venezia" }] } },
-            "Friuli-Venezia Giulia": { name: "Friuli-Venezia Giulia", representatives: { european: [{ name: "Anna Maria Cisint (Lega)", role: "Europarlamentare" }], national: [{ name: "Luca Ciriani (FdI)", role: "Ministro" }], regional: [{ name: "Massimiliano Fedriga", role: "Presidente Regione" }, { name: "Roberto Dipiazza", role: "Sindaco Trieste" }] } },
-            "Emilia-Romagna": { name: "Emilia-Romagna", representatives: { european: [{ name: "Stefano Bonaccini (PD)", role: "Europarlamentare" }], national: [{ name: "Galeazzo Bignami (FdI)", role: "Viceministro" }], regional: [{ name: "Michele de Pascale", role: "Presidente Regione (2024)" }, { name: "Matteo Lepore", role: "Sindaco Bologna" }] } },
-            "Toscana": { name: "Toscana", representatives: { european: [{ name: "Dario Nardella (PD)", role: "Europarlamentare" }], national: [{ name: "Matteo Renzi (IV)", role: "Senatore" }], regional: [{ name: "Eugenio Giani", role: "Presidente Regione" }, { name: "Sara Funaro", role: "Sindaca Firenze (2024)" }] } },
-            "Umbria": { name: "Umbria", representatives: { european: [{ name: "Marco Squarta (FdI)", role: "Europarlamentare" }], national: [{ name: "Walter Verini (PD)", role: "Deputato" }], regional: [{ name: "Stefania Proietti", role: "Presidente Regione (2024)" }, { name: "Vittoria Ferdinandi", role: "Sindaca Perugia (2024)" }] } },
-            "Marche": { name: "Marche", representatives: { european: [{ name: "Matteo Ricci (PD)", role: "Europarlamentare" }], national: [{ name: "Lucia Albano (FdI)", role: "Sottosegretario" }], regional: [{ name: "Francesco Acquaroli", role: "Presidente Regione" }, { name: "Daniele Silvetti", role: "Sindaco Ancona" }] } },
-            "Lazio": { name: "Lazio", representatives: { european: [{ name: "Nicola Zingaretti (PD)", role: "Capodelegazione PD" }], national: [{ name: "Giorgia Meloni", role: "Premier" }], regional: [{ name: "Francesco Rocca", role: "Presidente Regione" }, { name: "Roberto Gualtieri", role: "Sindaco Roma" }] } },
-            "Abruzzo": { name: "Abruzzo", representatives: { european: [{ name: "Lucia Annunziata (PD)", role: "Europarlamentare" }], national: [{ name: "Luciano D'Alfonso (PD)", role: "Deputato" }], regional: [{ name: "Marco Marsilio", role: "Presidente Regione" }, { name: "Pierluigi Biondi", role: "Sindaco L'Aquila" }] } },
-            "Molise": { name: "Molise", representatives: { european: [{ name: "Aldo Patriciello (Lega)", role: "Europarlamentare" }], national: [{ name: "Claudio Lotito (FI)", role: "Senatore" }], regional: [{ name: "Francesco Roberti", role: "Presidente Regione" }, { name: "Marialuisa Forte", role: "Sindaca Campobasso (2024)" }] } },
-            "Campania": { name: "Campania", representatives: { european: [{ name: "Lello Topo (PD)", role: "Europarlamentare" }], national: [{ name: "Mara Carfagna (Azione)", role: "Deputata" }], regional: [{ name: "Vincenzo De Luca", role: "Presidente Regione" }, { name: "Gaetano Manfredi", role: "Sindaco Napoli" }] } },
-            "Puglia": { name: "Puglia", representatives: { european: [{ name: "Antonio Decaro (PD)", role: "Pres. Comm. Ambiente UE" }], national: [{ name: "Raffaele Fitto", role: "Commissario UE" }], regional: [{ name: "Michele Emiliano", role: "Presidente Regione" }, { name: "Vito Leccese", role: "Sindaco Bari (2024)" }] } },
-            "Basilicata": { name: "Basilicata", representatives: { european: [{ name: "Dario Tamburrano (M5S)", role: "Europarlamentare" }], national: [{ name: "Elisabetta Casellati (FI)", role: "Ministro" }], regional: [{ name: "Vito Bardi", role: "Presidente Regione" }, { name: "Vincenzo Telesca", role: "Sindaco Potenza (2024)" }] } },
-            "Calabria": { name: "Calabria", representatives: { european: [{ name: "Mimmo Lucano (AVS)", role: "Europarlamentare" }], national: [{ name: "Wanda Ferro (FdI)", role: "Sottosegretario" }], regional: [{ name: "Roberto Occhiuto", role: "Presidente Regione" }, { name: "Nicola Fiorita", role: "Sindaco Catanzaro" }] } },
-            "Sicilia": { name: "Sicilia", representatives: { european: [{ name: "Caterina Chinnici (FI)", role: "Europarlamentare" }], national: [{ name: "Nello Musumeci", role: "Ministro" }], regional: [{ name: "Renato Schifani", role: "Presidente Regione" }, { name: "Roberto Lagalla", role: "Sindaco Palermo" }] } },
-            "Sardegna": { name: "Sardegna", representatives: { european: [{ name: "Ignazio Marino (AVS)", role: "Europarlamentare" }], national: [{ name: "Ugo Cappellacci (FI)", role: "Deputato" }], regional: [{ name: "Alessandra Todde", role: "Presidente Regione (2024)" }, { name: "Massimo Zedda", role: "Sindaco Cagliari (2024)" }] } }
+            "Lombardia": { 
+                name: "Lombardia", 
+                summary: "Roccaforte del centrodestra con tensioni su sanità e trasporti.",
+                representatives: { 
+                    european: [
+                        { id: "e1", name: "Giorgio Gori", party: "PD", role: "Europarlamentare" }, 
+                        { id: "e2", name: "Roberto Vannacci", party: "Lega", role: "Europarlamentare" },
+                        { id: "e3", name: "Ilaria Salis", party: "AVS", role: "Europarlamentare" },
+                        { id: "e4", name: "Silvia Sardone", party: "Lega", role: "Europarlamentare" },
+                        { id: "e5", name: "Isabella Tovaglieri", party: "Lega", role: "Europarlamentare" },
+                        { id: "e6", name: "Massimiliano Salini", party: "FI", role: "Europarlamentare" },
+                        { id: "e7", name: "Pierfrancesco Maran", party: "PD", role: "Europarlamentare" }
+                    ], 
+                    national: [
+                        { id: "n1", name: "Matteo Salvini", party: "Lega", role: "Vicepremier" }, 
+                        { id: "n2", name: "Ignazio La Russa", party: "FdI", role: "Pres. Senato" },
+                        { id: "n3", name: "Giancarlo Giorgetti", party: "Lega", role: "Ministro MEF" },
+                        { id: "n4", name: "Licia Ronzulli", party: "FI", role: "Senatrice" },
+                        { id: "n5", name: "Alessandro Cattaneo", party: "PD", role: "Deputato" },
+                        { id: "n6", name: "Benedetto Della Vedova", party: "+Europa", role: "Deputato" }
+                    ], 
+                    regional: [
+                        { id: "r1", name: "Attilio Fontana", party: "Lega", role: "Presidente Regione" }, 
+                        { id: "r2", name: "Giuseppe Sala", party: "Verdi", role: "Sindaco Milano" },
+                        { id: "r3", name: "Pierfrancesco Majorino", party: "PD", role: "Capogruppo Opp." },
+                        { id: "r4", name: "Romano La Russa", party: "FdI", role: "Assessore Sicurezza" },
+                        { id: "r5", name: "Guido Guidesi", party: "Lega", role: "Assessore Sviluppo" },
+                        { id: "r6", name: "Giorgio Maione", party: "Lombardia Ideale", role: "Assessore Ambiente" }
+                    ] 
+                } 
+            },
+             "Lazio": { 
+                name: "Lazio", 
+                summary: "Governo regionale di centrodestra. Focus su Giubileo e Sanità.",
+                representatives: { 
+                    european: [
+                        { name: "Nicola Zingaretti", party: "PD", role: "Capodelegazione" }, 
+                        { name: "Antonella Sberna", party: "FdI", role: "Vicepres. UE" },
+                        { name: "Marco Tarquinio", party: "PD", role: "Europarlamentare" },
+                        { name: "Carlo Calenda", party: "Azione", role: "Europarlamentare" }
+                    ], 
+                    national: [
+                        { name: "Giorgia Meloni", party: "FdI", role: "Premier" }, 
+                        { name: "Giuseppe Conte", party: "M5S", role: "Deputato" }, 
+                        { name: "Claudio Durigon", party: "Lega", role: "Sottosegretario" },
+                        { name: "Francesco Lollobrigida", party: "FdI", role: "Ministro" },
+                        { name: "Paolo Trancassini", party: "FdI", role: "Deputato" }
+                    ], 
+                    regional: [
+                        { name: "Francesco Rocca", party: "FdI", role: "Presidente Regione" }, 
+                        { name: "Roberto Gualtieri", party: "PD", role: "Sindaco Roma" }, 
+                        { name: "Mario Ciarla", party: "PD", role: "Consigliere" },
+                        { name: "Roberta Angelilli", party: "FdI", role: "Vicepresidente" },
+                        { name: "Elena Palazzo", party: "FdI", role: "Assessore" }
+                    ] 
+                } 
+            },
+            // Fallback per altre regioni (verranno comunque popolate dall'AI se disponibile)
         };
 
         // --- SUB-COMPONENTI ---
