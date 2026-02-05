@@ -98,19 +98,20 @@
         };
 
         // --- CONFIGURAZIONE API ---
-        // 🔑 API Key inserita per attivare la ricerca live
         const apiKey = "AIzaSyDQ2EgOwmUWfGn5YzLzYSksmYccy7k7KqA";
 
-        // --- MOTORE AI 1: RICERCA LISTA RAPPRESENTANTI ---
+        // --- MOTORE AI 1: RICERCA LISTA RAPPRESENTANTI (Massiva) ---
         const fetchRegionDataWithAI = async (regionName) => {
             if (!apiKey) return null;
 
             const prompt = `
                 Analista politico. Regione: "${regionName}".
                 Trova una lista ESTESA dei rappresentanti attuali (2024/2025). 
-                Cerca almeno 4-6 nomi rilevanti per categoria (maggioranza e opposizione).
-
-                JSON richiesto:
+                
+                IMPORTANTE: Cerca almeno 5-8 nomi per categoria (se possibile).
+                Includi sia rappresentanti di maggioranza che di opposizione.
+                
+                JSON richiesto (senza markdown):
                 {
                     "name": "${regionName}",
                     "representatives": {
@@ -143,14 +144,14 @@
             
             const prompt = `
                 Analizza l'attività politica recente di ${repName} (${repRole}, ${region}).
-                Fornisci 3 azioni concrete recenti (voti, proposte, dichiarazioni) e un giudizio sintetico.
+                Fornisci 3 azioni concrete recenti (voti specifici, proposte di legge, dichiarazioni pubbliche) e un breve giudizio.
                 
                 JSON richiesto:
                 {
                     "actions": [
-                        {"date": "Recente", "text": "Azione 1..."},
-                        {"date": "Recente", "text": "Azione 2..."},
-                        {"date": "Recente", "text": "Azione 3..."}
+                        {"date": "Data Approx", "text": "Descrizione azione..."},
+                        {"date": "Data Approx", "text": "Descrizione azione..."},
+                        {"date": "Data Approx", "text": "Descrizione azione..."}
                     ],
                     "focus": "Su cosa si sta concentrando (max 10 parole)",
                     "transparency_score": "Alto/Medio/Basso"
@@ -171,53 +172,31 @@
             } catch (error) { return { error: "Impossibile recuperare dettagli." }; }
         };
 
-        // --- DATI STATICI (Fallback se AI fallisce) ---
+        // --- DATI REALI 2025 (Fallback completo per tutte le regioni) ---
         const REGION_DATA = {
-            "Lombardia": { 
-                name: "Lombardia", 
-                summary: "Roccaforte del centrodestra con tensioni su sanità e trasporti.",
-                representatives: { 
-                    european: [
-                        { id: "e1", name: "Giorgio Gori", party: "PD", role: "Europarlamentare" }, 
-                        { id: "e2", name: "Roberto Vannacci", party: "Lega", role: "Europarlamentare" },
-                        { id: "e3", name: "Ilaria Salis", party: "AVS", role: "Europarlamentare" },
-                        { id: "e4", name: "Silvia Sardone", party: "Lega", role: "Europarlamentare" }
-                    ], 
-                    national: [
-                        { id: "n1", name: "Matteo Salvini", party: "Lega", role: "Vicepremier" }, 
-                        { id: "n2", name: "Ignazio La Russa", party: "FdI", role: "Pres. Senato" },
-                        { id: "n3", name: "Giancarlo Giorgetti", party: "Lega", role: "Ministro MEF" },
-                        { id: "n4", name: "Licia Ronzulli", party: "FI", role: "Senatrice" }
-                    ], 
-                    regional: [
-                        { id: "r1", name: "Attilio Fontana", party: "Lega", role: "Presidente Regione" }, 
-                        { id: "r2", name: "Giuseppe Sala", party: "Verdi", role: "Sindaco Milano" },
-                        { id: "r3", name: "Pierfrancesco Majorino", party: "PD", role: "Capogruppo Opp." },
-                        { id: "r4", name: "Romano La Russa", party: "FdI", role: "Assessore Sicurezza" }
-                    ] 
-                } 
-            },
-             "Lazio": { 
-                name: "Lazio", 
-                summary: "Governo regionale di centrodestra. Focus su Giubileo e Sanità.",
-                representatives: { 
-                    european: [{ name: "Nicola Zingaretti", party: "PD", role: "Capodelegazione" }, { name: "Antonella Sberna", party: "FdI", role: "Vicepres. UE" }], 
-                    national: [{ name: "Giorgia Meloni", party: "FdI", role: "Premier" }, { name: "Giuseppe Conte", party: "M5S", role: "Deputato" }, { name: "Claudio Durigon", party: "Lega", role: "Sottosegretario" }], 
-                    regional: [{ name: "Francesco Rocca", party: "FdI", role: "Presidente Regione" }, { name: "Roberto Gualtieri", party: "PD", role: "Sindaco Roma" }, { name: "Mario Ciarla", party: "PD", role: "Consigliere" }] 
-                } 
-            },
-            "Veneto": { 
-                name: "Veneto", 
-                summary: "Dibattito sull'autonomia differenziata.",
-                representatives: { 
-                    european: [{ name: "Elena Donazzan", party: "FdI", role: "Europarlamentare" }, { name: "Alessandra Moretti", party: "PD", role: "Europarlamentare" }], 
-                    national: [{ name: "Carlo Nordio", party: "FdI", role: "Ministro Giustizia" }, { name: "Elisabetta Casellati", party: "FI", role: "Ministro" }], 
-                    regional: [{ name: "Luca Zaia", party: "Lega", role: "Presidente Regione" }, { name: "Luigi Brugnaro", party: "CI", role: "Sindaco Venezia" }] 
-                } 
-            }
+            "Valle d'Aosta": { name: "Valle d'Aosta", representatives: { european: [{ name: "Ilaria Salis (AVS)", role: "Europarlamentare" }], national: [{ name: "Franco Manes (UV)", role: "Deputato" }], regional: [{ name: "Renzo Testolin", role: "Presidente Regione" }, { name: "Gianni Nuti", role: "Sindaco Aosta" }] } },
+            "Piemonte": { name: "Piemonte", representatives: { european: [{ name: "Cecilia Strada (PD)", role: "Europarlamentare" }], national: [{ name: "Guido Crosetto (FdI)", role: "Ministro Difesa" }], regional: [{ name: "Alberto Cirio", role: "Presidente Regione" }, { name: "Stefano Lo Russo", role: "Sindaco Torino" }] } },
+            "Liguria": { name: "Liguria", representatives: { european: [{ name: "Brando Benifei (PD)", role: "Europarlamentare" }], national: [{ name: "Edoardo Rixi (Lega)", role: "Viceministro" }], regional: [{ name: "Marco Bucci", role: "Presidente Regione (2024)" }, { name: "Pietro Piciocchi", role: "Vicesindaco Genova" }] } },
+            "Lombardia": { name: "Lombardia", representatives: { european: [{ name: "Giorgio Gori (PD)", role: "Europarlamentare" }, { name: "Roberto Vannacci (Lega)", role: "Europarlamentare" }], national: [{ name: "Matteo Salvini (Lega)", role: "Vicepremier" }], regional: [{ name: "Attilio Fontana", role: "Presidente Regione" }, { name: "Giuseppe Sala", role: "Sindaco Milano" }] } },
+            "Trentino-Alto Adige": { name: "Trentino-Alto Adige", representatives: { european: [{ name: "Herbert Dorfmann (SVP)", role: "Europarlamentare" }], national: [{ name: "Maria Elena Boschi (IV)", role: "Deputata" }], regional: [{ name: "Arno Kompatscher", role: "Pres. Prov. Bolzano" }, { name: "Maurizio Fugatti", role: "Pres. Prov. Trento" }] } },
+            "Veneto": { name: "Veneto", representatives: { european: [{ name: "Elena Donazzan (FdI)", role: "Europarlamentare" }], national: [{ name: "Carlo Nordio (FdI)", role: "Ministro Giustizia" }], regional: [{ name: "Luca Zaia", role: "Presidente Regione" }, { name: "Luigi Brugnaro", role: "Sindaco Venezia" }] } },
+            "Friuli-Venezia Giulia": { name: "Friuli-Venezia Giulia", representatives: { european: [{ name: "Anna Maria Cisint (Lega)", role: "Europarlamentare" }], national: [{ name: "Luca Ciriani (FdI)", role: "Ministro" }], regional: [{ name: "Massimiliano Fedriga", role: "Presidente Regione" }, { name: "Roberto Dipiazza", role: "Sindaco Trieste" }] } },
+            "Emilia-Romagna": { name: "Emilia-Romagna", representatives: { european: [{ name: "Stefano Bonaccini (PD)", role: "Europarlamentare" }], national: [{ name: "Galeazzo Bignami (FdI)", role: "Viceministro" }], regional: [{ name: "Michele de Pascale", role: "Presidente Regione (2024)" }, { name: "Matteo Lepore", role: "Sindaco Bologna" }] } },
+            "Toscana": { name: "Toscana", representatives: { european: [{ name: "Dario Nardella (PD)", role: "Europarlamentare" }], national: [{ name: "Matteo Renzi (IV)", role: "Senatore" }], regional: [{ name: "Eugenio Giani", role: "Presidente Regione" }, { name: "Sara Funaro", role: "Sindaca Firenze (2024)" }] } },
+            "Umbria": { name: "Umbria", representatives: { european: [{ name: "Marco Squarta (FdI)", role: "Europarlamentare" }], national: [{ name: "Walter Verini (PD)", role: "Deputato" }], regional: [{ name: "Stefania Proietti", role: "Presidente Regione (2024)" }, { name: "Vittoria Ferdinandi", role: "Sindaca Perugia (2024)" }] } },
+            "Marche": { name: "Marche", representatives: { european: [{ name: "Matteo Ricci (PD)", role: "Europarlamentare" }], national: [{ name: "Lucia Albano (FdI)", role: "Sottosegretario" }], regional: [{ name: "Francesco Acquaroli", role: "Presidente Regione" }, { name: "Daniele Silvetti", role: "Sindaco Ancona" }] } },
+            "Lazio": { name: "Lazio", representatives: { european: [{ name: "Nicola Zingaretti (PD)", role: "Capodelegazione PD" }], national: [{ name: "Giorgia Meloni", role: "Premier" }], regional: [{ name: "Francesco Rocca", role: "Presidente Regione" }, { name: "Roberto Gualtieri", role: "Sindaco Roma" }] } },
+            "Abruzzo": { name: "Abruzzo", representatives: { european: [{ name: "Lucia Annunziata (PD)", role: "Europarlamentare" }], national: [{ name: "Luciano D'Alfonso (PD)", role: "Deputato" }], regional: [{ name: "Marco Marsilio", role: "Presidente Regione" }, { name: "Pierluigi Biondi", role: "Sindaco L'Aquila" }] } },
+            "Molise": { name: "Molise", representatives: { european: [{ name: "Aldo Patriciello (Lega)", role: "Europarlamentare" }], national: [{ name: "Claudio Lotito (FI)", role: "Senatore" }], regional: [{ name: "Francesco Roberti", role: "Presidente Regione" }, { name: "Marialuisa Forte", role: "Sindaca Campobasso (2024)" }] } },
+            "Campania": { name: "Campania", representatives: { european: [{ name: "Lello Topo (PD)", role: "Europarlamentare" }], national: [{ name: "Mara Carfagna (Azione)", role: "Deputata" }], regional: [{ name: "Vincenzo De Luca", role: "Presidente Regione" }, { name: "Gaetano Manfredi", role: "Sindaco Napoli" }] } },
+            "Puglia": { name: "Puglia", representatives: { european: [{ name: "Antonio Decaro (PD)", role: "Pres. Comm. Ambiente UE" }], national: [{ name: "Raffaele Fitto", role: "Commissario UE" }], regional: [{ name: "Michele Emiliano", role: "Presidente Regione" }, { name: "Vito Leccese", role: "Sindaco Bari (2024)" }] } },
+            "Basilicata": { name: "Basilicata", representatives: { european: [{ name: "Dario Tamburrano (M5S)", role: "Europarlamentare" }], national: [{ name: "Elisabetta Casellati (FI)", role: "Ministro" }], regional: [{ name: "Vito Bardi", role: "Presidente Regione" }, { name: "Vincenzo Telesca", role: "Sindaco Potenza (2024)" }] } },
+            "Calabria": { name: "Calabria", representatives: { european: [{ name: "Mimmo Lucano (AVS)", role: "Europarlamentare" }], national: [{ name: "Wanda Ferro (FdI)", role: "Sottosegretario" }], regional: [{ name: "Roberto Occhiuto", role: "Presidente Regione" }, { name: "Nicola Fiorita", role: "Sindaco Catanzaro" }] } },
+            "Sicilia": { name: "Sicilia", representatives: { european: [{ name: "Caterina Chinnici (FI)", role: "Europarlamentare" }], national: [{ name: "Nello Musumeci", role: "Ministro" }], regional: [{ name: "Renato Schifani", role: "Presidente Regione" }, { name: "Roberto Lagalla", role: "Sindaco Palermo" }] } },
+            "Sardegna": { name: "Sardegna", representatives: { european: [{ name: "Ignazio Marino (AVS)", role: "Europarlamentare" }], national: [{ name: "Ugo Cappellacci (FI)", role: "Deputato" }], regional: [{ name: "Alessandra Todde", role: "Presidente Regione (2024)" }, { name: "Massimo Zedda", role: "Sindaco Cagliari (2024)" }] } }
         };
 
-        // --- SUB-COMPONENTI (Definiti prima per evitare errori) ---
+        // --- SUB-COMPONENTI ---
 
         const RepDetailModal = ({ rep, region, onClose }) => {
             const [details, setDetails] = useState(null);
@@ -344,26 +323,26 @@
                 <div className="w-full h-full p-4 flex items-center justify-center map-container">
                     <svg viewBox="0 0 600 800" className="w-full h-full max-h-[85vh]" style={{ overflow: 'visible' }}>
                         <g transform="translate(10, 160) scale(1.1)">
-                            <path id="valle_aosta" onClick={()=>onSelect("Valle d'Aosta")} className={getFill("Valle d'Aosta")} d="M72.5,58.8 L78.4,59.3 L84.3,55.9 L89.8,55.4 L95.7,58.3 L97.4,62.8 L92.8,72.4 L85.2,74.9 L81.0,83.3 L72.1,80.4 L67.1,72.4 L67.9,64.4 L72.5,58.8 Z" />
-                            <path id="piemonte" onClick={()=>onSelect("Piemonte")} className={getFill("Piemonte")} d="M97.4,62.8 L111.3,64.9 L116.3,73.7 L127.3,77.5 L129.8,88.9 L126.9,101.9 L132.8,114.5 L124.3,121.2 L109.2,135.5 L89.4,136.3 L83.1,146.4 L68.8,136.3 L55.3,130.4 L46.0,111.9 L47.3,96.8 L59.1,75.4 L67.9,64.4 L72.1,80.4 L81.0,83.3 L85.2,74.9 L92.8,72.4 L97.4,62.8 Z" />
-                            <path id="lombardia" onClick={()=>onSelect("Lombardia")} className={getFill("Lombardia")} d="M127.3,77.5 L144.1,64.9 L154.6,50.6 L174.0,46.0 L187.9,51.9 L198.8,62.4 L204.7,58.6 L211.0,64.9 L211.0,85.5 L203.0,91.8 L203.4,103.6 L195.9,109.5 L183.2,109.9 L171.9,117.0 L156.3,113.7 L152.1,123.3 L142.0,123.7 L132.8,114.5 L126.9,101.9 L129.8,88.9 L127.3,77.5 Z" />
-                            <path id="trentino" onClick={()=>onSelect("Trentino-Alto Adige")} className={getFill("Trentino-Alto Adige")} d="M211.0,64.9 L217.3,55.6 L237.9,46.0 L259.0,47.2 L267.0,59.8 L259.4,75.0 L248.9,81.7 L241.7,80.0 L234.1,98.1 L219.0,103.6 L212.7,98.5 L211.0,85.5 L211.0,64.9 Z" />
-                            <path id="veneto" onClick={()=>onSelect("Veneto")} className={getFill("Veneto")} d="M219.0,103.6 L234.1,98.1 L241.7,80.0 L248.9,81.7 L259.4,75.0 L267.0,59.8 L271.6,63.2 L274.5,84.6 L283.4,85.0 L287.6,104.4 L276.6,107.7 L263.2,126.7 L248.9,135.5 L231.2,120.4 L214.3,121.6 L208.4,115.3 L203.4,103.6 L219.0,103.6 Z" />
-                            <path id="friuli" onClick={()=>onSelect("Friuli-Venezia Giulia")} className={getFill("Friuli-Venezia Giulia")} d="M259.4,75.0 L277.5,74.2 L285.9,79.2 L297.7,78.0 L301.9,89.3 L287.6,104.4 L283.4,85.0 L274.5,84.6 L271.6,63.2 L259.4,75.0 Z" />
-                            <path id="liguria" onClick={()=>onSelect("Liguria")} className={getFill("Liguria")} d="M89.4,136.3 L109.2,135.5 L124.3,121.2 L142.0,123.7 L152.1,123.3 L163.4,136.8 L152.1,146.4 L139.9,141.0 L131.0,147.7 L115.9,144.3 L104.1,148.5 L97.4,142.2 L89.4,136.3 Z" />
-                            <path id="emilia" onClick={()=>onSelect("Emilia-Romagna")} className={getFill("Emilia-Romagna")} d="M124.3,121.2 L132.8,114.5 L142.0,123.7 L156.3,113.7 L171.9,117.0 L183.2,109.9 L195.9,109.5 L203.4,103.6 L208.4,115.3 L214.3,121.6 L231.2,120.4 L248.9,135.5 L253.9,149.8 L244.2,162.0 L231.2,154.8 L219.0,165.8 L197.9,158.2 L179.8,168.7 L163.4,136.8 L152.1,123.3 L142.0,123.7 L124.3,121.2 Z" />
-                            <path id="toscana" onClick={()=>onSelect("Toscana")} className={getFill("Toscana")} d="M163.4,136.8 L179.8,168.7 L197.9,158.2 L206.3,169.1 L195.9,186.8 L199.2,198.6 L189.1,207.0 L176.5,204.0 L166.0,223.4 L142.0,202.8 L137.8,187.6 L148.3,178.4 L145.4,166.2 L152.1,146.4 L163.4,136.8 Z" />
-                            <path id="umbria" onClick={()=>onSelect("Umbria")} className={getFill("Umbria")} d="M197.9,158.2 L219.0,165.8 L228.3,194.0 L211.4,204.0 L199.2,198.6 L195.9,186.8 L206.3,169.1 L197.9,158.2 Z" />
-                            <path id="marche" onClick={()=>onSelect("Marche")} className={getFill("Marche")} d="M219.0,165.8 L231.2,154.8 L244.2,162.0 L253.9,149.8 L265.7,162.0 L266.1,178.8 L253.9,190.2 L237.9,188.5 L228.3,194.0 L219.0,165.8 Z" />
-                            <path id="lazio" onClick={()=>onSelect("Lazio")} className={getFill("Lazio")} d="M166.0,223.4 L176.5,204.0 L189.1,207.0 L199.2,198.6 L211.4,204.0 L228.3,194.0 L237.9,188.5 L245.9,199.4 L240.4,213.3 L255.6,236.1 L234.1,257.5 L217.3,250.8 L206.3,239.0 L197.9,252.9 L180.2,246.6 L166.0,223.4 Z" />
-                            <path id="abruzzo" onClick={()=>onSelect("Abruzzo")} className={getFill("Abruzzo")} d="M237.9,188.5 L253.9,190.2 L266.1,178.8 L283.4,196.4 L272.8,217.1 L255.6,236.1 L240.4,213.3 L245.9,199.4 L237.9,188.5 Z" />
-                            <path id="molise" onClick={()=>onSelect("Molise")} className={getFill("Molise")} d="M255.6,236.1 L272.8,217.1 L291.8,223.0 L293.9,235.6 L280.0,248.6 L255.6,236.1 Z" />
-                            <path id="campania" onClick={()=>onSelect("Campania")} className={getFill("Campania")} d="M217.3,250.8 L234.1,257.5 L255.6,236.1 L280.0,248.6 L277.5,257.9 L296.8,272.2 L288.0,296.6 L278.3,293.2 L275.8,309.2 L260.6,281.4 L244.2,284.8 L230.7,267.5 L217.3,250.8 Z" />
-                            <path id="puglia" onClick={()=>onSelect("Puglia")} className={getFill("Puglia")} d="M291.8,223.0 L303.6,215.0 L313.7,219.2 L320.4,242.0 L333.1,241.1 L360.0,277.3 L381.1,281.5 L391.2,298.3 L369.3,313.1 L341.5,296.2 L332.2,299.6 L311.1,273.9 L296.8,272.2 L277.5,257.9 L280.0,248.6 L293.9,235.6 L291.8,223.0 Z" />
-                            <path id="basilicata" onClick={()=>onSelect("Basilicata")} className={getFill("Basilicata")} d="M277.5,257.9 L296.8,272.2 L311.1,273.9 L306.9,286.1 L319.1,299.2 L314.9,313.9 L298.5,316.0 L287.1,304.2 L288.0,296.6 L296.8,272.2 L277.5,257.9 Z" />
-                            <path id="calabria" onClick={()=>onSelect("Calabria")} className={getFill("Calabria")} d="M298.5,316.0 L314.9,313.9 L323.7,321.9 L321.6,350.2 L297.6,368.7 L287.1,365.3 L287.1,346.8 L296.8,328.7 L287.1,304.2 L298.5,316.0 Z" />
-                            <path id="sicilia" onClick={()=>onSelect("Sicilia")} className={getFill("Sicilia")} d="M228.0,365.3 L272.0,358.5 L285.0,369.5 L276.0,390.0 L250.0,415.0 L195.0,400.0 L190.0,380.0 L228.0,365.3 Z" />
-                            <path id="sardegna" onClick={()=>onSelect("Sardegna")} className={getFill("Sardegna")} d="M45.0,230.0 L90.0,225.0 L95.0,290.0 L75.0,320.0 L35.0,310.0 L45.0,230.0 Z" />
+                            <path id="Valle d'Aosta" onClick={()=>onSelect("Valle d'Aosta")} className={getFill("Valle d'Aosta")} d="M72.5,58.8 L78.4,59.3 L84.3,55.9 L89.8,55.4 L95.7,58.3 L97.4,62.8 L92.8,72.4 L85.2,74.9 L81.0,83.3 L72.1,80.4 L67.1,72.4 L67.9,64.4 L72.5,58.8 Z" />
+                            <path id="Piemonte" onClick={()=>onSelect("Piemonte")} className={getFill("Piemonte")} d="M97.4,62.8 L111.3,64.9 L116.3,73.7 L127.3,77.5 L129.8,88.9 L126.9,101.9 L132.8,114.5 L124.3,121.2 L109.2,135.5 L89.4,136.3 L83.1,146.4 L68.8,136.3 L55.3,130.4 L46.0,111.9 L47.3,96.8 L59.1,75.4 L67.9,64.4 L72.1,80.4 L81.0,83.3 L85.2,74.9 L92.8,72.4 L97.4,62.8 Z" />
+                            <path id="Lombardia" onClick={()=>onSelect("Lombardia")} className={getFill("Lombardia")} d="M127.3,77.5 L144.1,64.9 L154.6,50.6 L174.0,46.0 L187.9,51.9 L198.8,62.4 L204.7,58.6 L211.0,64.9 L211.0,85.5 L203.0,91.8 L203.4,103.6 L195.9,109.5 L183.2,109.9 L171.9,117.0 L156.3,113.7 L152.1,123.3 L142.0,123.7 L132.8,114.5 L126.9,101.9 L129.8,88.9 L127.3,77.5 Z" />
+                            <path id="Trentino-Alto Adige" onClick={()=>onSelect("Trentino-Alto Adige")} className={getFill("Trentino-Alto Adige")} d="M211.0,64.9 L217.3,55.6 L237.9,46.0 L259.0,47.2 L267.0,59.8 L259.4,75.0 L248.9,81.7 L241.7,80.0 L234.1,98.1 L219.0,103.6 L212.7,98.5 L211.0,85.5 L211.0,64.9 Z" />
+                            <path id="Veneto" onClick={()=>onSelect("Veneto")} className={getFill("Veneto")} d="M219.0,103.6 L234.1,98.1 L241.7,80.0 L248.9,81.7 L259.4,75.0 L267.0,59.8 L271.6,63.2 L274.5,84.6 L283.4,85.0 L287.6,104.4 L276.6,107.7 L263.2,126.7 L248.9,135.5 L231.2,120.4 L214.3,121.6 L208.4,115.3 L203.4,103.6 L219.0,103.6 Z" />
+                            <path id="Friuli-Venezia Giulia" onClick={()=>onSelect("Friuli-Venezia Giulia")} className={getFill("Friuli-Venezia Giulia")} d="M259.4,75.0 L277.5,74.2 L285.9,79.2 L297.7,78.0 L301.9,89.3 L287.6,104.4 L283.4,85.0 L274.5,84.6 L271.6,63.2 L259.4,75.0 Z" />
+                            <path id="Liguria" onClick={()=>onSelect("Liguria")} className={getFill("Liguria")} d="M89.4,136.3 L109.2,135.5 L124.3,121.2 L142.0,123.7 L152.1,123.3 L163.4,136.8 L152.1,146.4 L139.9,141.0 L131.0,147.7 L115.9,144.3 L104.1,148.5 L97.4,142.2 L89.4,136.3 Z" />
+                            <path id="Emilia-Romagna" onClick={()=>onSelect("Emilia-Romagna")} className={getFill("Emilia-Romagna")} d="M124.3,121.2 L132.8,114.5 L142.0,123.7 L156.3,113.7 L171.9,117.0 L183.2,109.9 L195.9,109.5 L203.4,103.6 L208.4,115.3 L214.3,121.6 L231.2,120.4 L248.9,135.5 L253.9,149.8 L244.2,162.0 L231.2,154.8 L219.0,165.8 L197.9,158.2 L179.8,168.7 L163.4,136.8 L152.1,123.3 L142.0,123.7 L124.3,121.2 Z" />
+                            <path id="Toscana" onClick={()=>onSelect("Toscana")} className={getFill("Toscana")} d="M163.4,136.8 L179.8,168.7 L197.9,158.2 L206.3,169.1 L195.9,186.8 L199.2,198.6 L189.1,207.0 L176.5,204.0 L166.0,223.4 L142.0,202.8 L137.8,187.6 L148.3,178.4 L145.4,166.2 L152.1,146.4 L163.4,136.8 Z" />
+                            <path id="Umbria" onClick={()=>onSelect("Umbria")} className={getFill("Umbria")} d="M197.9,158.2 L219.0,165.8 L228.3,194.0 L211.4,204.0 L199.2,198.6 L195.9,186.8 L206.3,169.1 L197.9,158.2 Z" />
+                            <path id="Marche" onClick={()=>onSelect("Marche")} className={getFill("Marche")} d="M219.0,165.8 L231.2,154.8 L244.2,162.0 L253.9,149.8 L265.7,162.0 L266.1,178.8 L253.9,190.2 L237.9,188.5 L228.3,194.0 L219.0,165.8 Z" />
+                            <path id="Lazio" onClick={()=>onSelect("Lazio")} className={getFill("Lazio")} d="M166.0,223.4 L176.5,204.0 L189.1,207.0 L199.2,198.6 L211.4,204.0 L228.3,194.0 L237.9,188.5 L245.9,199.4 L240.4,213.3 L255.6,236.1 L234.1,257.5 L217.3,250.8 L206.3,239.0 L197.9,252.9 L180.2,246.6 L166.0,223.4 Z" />
+                            <path id="Abruzzo" onClick={()=>onSelect("Abruzzo")} className={getFill("Abruzzo")} d="M237.9,188.5 L253.9,190.2 L266.1,178.8 L283.4,196.4 L272.8,217.1 L255.6,236.1 L240.4,213.3 L245.9,199.4 L237.9,188.5 Z" />
+                            <path id="Molise" onClick={()=>onSelect("Molise")} className={getFill("Molise")} d="M255.6,236.1 L272.8,217.1 L291.8,223.0 L293.9,235.6 L280.0,248.6 L255.6,236.1 Z" />
+                            <path id="Campania" onClick={()=>onSelect("Campania")} className={getFill("Campania")} d="M217.3,250.8 L234.1,257.5 L255.6,236.1 L280.0,248.6 L277.5,257.9 L296.8,272.2 L288.0,296.6 L278.3,293.2 L275.8,309.2 L260.6,281.4 L244.2,284.8 L230.7,267.5 L217.3,250.8 Z" />
+                            <path id="Puglia" onClick={()=>onSelect("Puglia")} className={getFill("Puglia")} d="M291.8,223.0 L303.6,215.0 L313.7,219.2 L320.4,242.0 L333.1,241.1 L360.0,277.3 L381.1,281.5 L391.2,298.3 L369.3,313.1 L341.5,296.2 L332.2,299.6 L311.1,273.9 L296.8,272.2 L277.5,257.9 L280.0,248.6 L293.9,235.6 L291.8,223.0 Z" />
+                            <path id="Basilicata" onClick={()=>onSelect("Basilicata")} className={getFill("Basilicata")} d="M277.5,257.9 L296.8,272.2 L311.1,273.9 L306.9,286.1 L319.1,299.2 L314.9,313.9 L298.5,316.0 L287.1,304.2 L288.0,296.6 L296.8,272.2 L277.5,257.9 Z" />
+                            <path id="Calabria" onClick={()=>onSelect("Calabria")} className={getFill("Calabria")} d="M298.5,316.0 L314.9,313.9 L323.7,321.9 L321.6,350.2 L297.6,368.7 L287.1,365.3 L287.1,346.8 L296.8,328.7 L287.1,304.2 L298.5,316.0 Z" />
+                            <path id="Sicilia" onClick={()=>onSelect("Sicilia")} className={getFill("Sicilia")} d="M228.0,365.3 L272.0,358.5 L285.0,369.5 L276.0,390.0 L250.0,415.0 L195.0,400.0 L190.0,380.0 L228.0,365.3 Z" />
+                            <path id="Sardegna" onClick={()=>onSelect("Sardegna")} className={getFill("Sardegna")} d="M45.0,230.0 L90.0,225.0 L95.0,290.0 L75.0,320.0 L35.0,310.0 L45.0,230.0 Z" />
                         </g>
                     </svg>
                 </div>
